@@ -24,16 +24,10 @@ function renderPlayers(players, language) {
             'Orion': 'Inazuma Eleven Orion',
             'VR': 'Inazuma Eleven Victory Road',
             'Scouts': 'Scout Characters',
-            'Fan': 'Fan Made Teams',
-            'GF': 'Galactik Football',
         }
     ];
 
-    // Add Custom players heading
-    htmlInsert += '</div><h4 class="custom"><img src="./images/addimage.png" class="modal-team-sprite">Create your own players</h4>' +
-        '<div id="custom-player-panel"><div><input id="custom-player-name" placeholder="Player name"><input type="file" id="custom-player-file" accept="image/*" onchange="loadSprite(event)"><input type="submit" id="add-button" value="Add player"></div></div>';
-
-    htmlInsert += '<h4 class="custom">Or select from the player list!</h4><div class="btn-group" role="group" aria-label="game-buttons">';
+    htmlInsert += '<h4 class="custom">Select from the player list!</h4><div class="btn-group" role="group" aria-label="game-buttons">';
     for (var i = 0; i < Object.keys(games[0]).length; i++) {
         htmlInsert += '<button type="button" onClick=toggle("game-' + i + '"); class="game-title" id="game-' + i + '-button"><img src="./images/logos/' + i + '.png" alt="' + Object.values(games[0])[i] + '"/></button>';
     }

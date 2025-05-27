@@ -198,14 +198,6 @@
 </head>
 
 <body class="htmlNoPages">
-<div id="popUP" class="popUP">
-    <div class="popUP-content">
-      <span class="close">&times;</span>
-      <h2>Missing Sprites (Players) updates!</h2>
-      <p>We are in the process of gradually updating Inazuma Eleven Team Builder and adding the missing sprites. Your patience is appreciated. Stay updated by joining us on Discord.</p>
-      <a href="https://discord.gg/SD9KK3GpVm" class="Pop-discord-btn" target="_blank">Join our Discord</a><a href="https://www.patreon.com/ownstudio" class="Pop-patreon-btn" target="_blank">Patreon</a>
-    </div>
-</div>
     <!-- Player Modal -->
     <div class="modal fade" id="myModal" role="dialog">
         <div class="modal-dialog">
@@ -253,14 +245,6 @@
                     onchange="'this.size=0;', changeFormation()">
                 </select>
             </div>
-            <div id="emblem-container" data-pg-name="Emblem container" class="Emblem">
-                <h1 id="emblem-label" data-pg-name="Emblem label">EMBLEM</h1>
-                <img src="images/team-placeholder.png" alt="Team emblem" id="emblem-sprite"
-                     data-pg-name="Emblem sprite" />
-                <select onmousedown="if(this.options.length>8){this.size=6;}" onblur="this.size=0;" id="emblem-dropdown"
-                    data-pg-name="Emblem dropdown" data-html2canvas-ignore="true" data-dropup-auto="false"
-                    onchange="'this.size=0;', updateSprite('emblem')"></select>
-            </div>
             <div id="coach-container" data-pg-name="Coach container" class="Coach">
                 <h1 id="coach-label" data-pg-name="Coach label">COACH</h1>
                 <img src="images/character-placeholder.png" alt="Team emblem" id="coach-sprite"
@@ -288,7 +272,9 @@
                     <button id="save-button" class="button" data-toggle="modal" data-target="#image-modal">Save as
                         image</button>
                     <button id="reset-button" class="button">Reset</button>
-                    
+                    <button id="random-button" class="button">Randomize</button>
+                    <button id="random-button" class="button">Ultra Random</button>
+                    <button id="draft-button" class="button">Draft Team</button>
                 </div>
             </div>
         </div>

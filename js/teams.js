@@ -887,22 +887,4 @@ var teams = [
         "Sprite": "https://vignette.wikia.nocookie.net/inazuma-eleven/images/6/6f/The_Genesis_emblem.png",
         "Game": "VR"
     },
-    {
-        "EnglishName": "Elemental Menace - @Procyon_Net",
-        "JapaneseName": "Elemental Menace - @Procyon_Net",
-        "Sprite": "./images/emblems/fan/Elements.png",
-        "Game": "Fan"
-    },
-    {
-        "EnglishName": "Real Zeus - @Axelrider44",
-        "JapaneseName": "Real Zeus - @Axelrider44",
-        "Sprite": "./images/emblems/fan/RealZeus.png",
-        "Game": "Fan"
-    },
-    {
-        "EnglishName": "Snow Kids",
-        "JapaneseName": "Snow Kids",
-        "Sprite": "./images/emblems/galactikfootball/snowkids.png",
-        "Game": "GF"
-    },
 ];
