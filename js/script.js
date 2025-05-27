@@ -1,6 +1,256 @@
 // Global variables
 var playerToChange, playerToChangeId, customSprite;
 
+
+
+
+// NEW OWN FUNCTIONS
+/**
+ * Get a random element from an array
+ * @param {array} arr The array to get a random element from
+ * @return {any} A random element from the array
+ */
+function getRandomElement(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Get the current language selected by the user
+ * @return {string} The current language, either 'English' or 'Japanese'
+ */
+function getCurrentLanguage() {
+    if (document.getElementById('english-names-input').checked) {
+        return 'English';
+    } else {
+        return 'Japanese';
+    }
+}
+
+/**
+ * Set a player in a specific slot
+ * @param {string} slotId The ID of the slot where the player will be set (e.g., "player-1", "sub-1")
+ * @param {object} playerObject The player object from the `players` array
+ */
+function setPlayerInSlot(slotId, playerObject) {
+    // slotId sería "player-1", "player-2", ..., "sub-1", etc.
+    // playerObject es un objeto de tu array `players`
+
+    const language = getCurrentLanguage();
+    const playerName = playerObject[language + 'Name'];
+    const playerSprite = playerObject.Sprite;
+    const playerTeamSprite = playerObject.TeamSprite; // o la lógica que uses para el escudo/elemento
+
+    // El ID del contenedor principal del slot es "player-X-container" o "sub-X-container"
+    // El ID del drag-box es "drag-box-player-X" o "drag-box-sub-X"
+
+    // Primero, encuentra el contenedor del slot.
+    // Necesitamos distinguir entre 'player-X' y 'sub-X' para las clases CSS
+    let playerTypePrefix = "player";
+    if (slotId.startsWith("sub")) {
+        playerTypePrefix = "sub";
+    }
+
+    const slotContainer = document.getElementById(slotId + '-container');
+    if (!slotContainer) {
+        console.error("Slot container not found for:", slotId);
+        return;
+    }
+
+    // Reconstruir el HTML interno similar a tu función changePlayer
+    let htmlInsert =
+        `<div id="drag-box-${slotId}-container" class="drag-box-container">
+            <div class="drag-box" id="drag-box-${slotId}" data-toggle="modal" data-target="#myModal" data-id="${slotId}" style="background-image: none">
+                <img src="${playerSprite}" id="${slotId}-sprite" data-pg-name="${slotId}-sprite" class="${playerTypePrefix}-sprite"/>
+            </div>
+            <div class="icon">✎</div>
+            <div class="${playerTypePrefix}-info-container" id="${slotId}-info-container" data-pg-name="${slotId}-info-container">`;
+
+    if (playerTeamSprite) {
+        htmlInsert +=
+            `<div id="${slotId}-element-container" class="${playerTypePrefix}-element-container" style="background-image: none">
+                <img id="${slotId}-element" data-pg-name="${slotId}-element" class="${playerTypePrefix}-element" src="${playerTeamSprite}"/>
+            </div>`;
+    }
+
+    htmlInsert +=
+        `<span id="${slotId}-name" data-pg-name="${slotId}-name" class="${playerTypePrefix}-name">${playerName.replace('<', '<').replace('>', '>')}</span>
+            </div>
+        </div>`;
+
+    slotContainer.innerHTML = htmlInsert;
+
+    // Re-adjuntar listener al nuevo drag-box para que siga siendo clickeable
+    const newDragBox = document.getElementById(`drag-box-${slotId}`);
+    if (newDragBox) {
+        newDragBox.addEventListener("click", () => {
+            playerToChange = newDragBox; // Tu variable global
+            playerToChangeId = newDragBox.dataset.id; // Tu variable global
+        });
+    }
+}
+
+/**
+ * Set a random team with random formation, coach and players
+ * This function will:
+ * 1. Choose a random formation from the `formations` array.
+ * 2. Choose a random coach from the `coaches` array.
+ * 3. Fill the player slots with random players from the `players` array, ensuring that:
+ *    - The players respect their required positions based on the chosen formation.
+ *   - No player is repeated in the team.
+ *  - The bench players can be any available players, not necessarily respecting their positions.
+ * * @returns {void}
+ */
+function handleRandomTeam() {
+    // 0. Limpiar el equipo actual para asegurar que no haya conflictos de IDs y que los slots estén "vacíos"
+    //    o simplemente sobrescribir. Si changeFormation() ya limpia, esto no es necesario.
+    //    clearTeam(); // Opcional, depende de cómo funcione changeFormation()
+
+    // 1. Elegir una formación al azar
+    const randomFormationObject = getRandomElement(formations);
+    const formationDropdown = document.getElementById('formation-dropdown');
+    formationDropdown.value = randomFormationObject.name;
+    changeFormation(); // Esto actualiza la UI del campo con los slots de la nueva formación
+
+    // 2. Elegir un entrenador al azar
+    const randomCoachObject = getRandomElement(coaches);
+    const coachDropdown = document.getElementById('coach-dropdown');
+    coachDropdown.value = randomCoachObject[getCurrentLanguage() + 'Name']; // Asume que el valor del option es el nombre
+    updateSprite('coach');
+
+    // 3. Elegir jugadores al azar respetando su posición
+    let availablePlayers = [...players]; // Copia para poder quitar jugadores usados
+    let selectedPlayersForTeam = []; // Para asegurar unicidad
+
+    // Mapeo de posiciones genéricas a tus strings de posición (si es necesario)
+    // Asumo que formationObject.positions usa 'GK', 'DF', 'MF', 'FW'
+    // y player.Position también usa estos mismos strings.
+
+    // Rellenar los 11 jugadores del campo
+    for (let i = 1; i <= 11; i++) {
+        const slotId = `player-${i}`;
+        const requiredPosition = randomFormationObject.positions[i - 1]; // GK, DF, MF, FW
+
+        let candidates = availablePlayers.filter(p =>
+            p.Position === requiredPosition && !selectedPlayersForTeam.includes(p)
+        );
+
+        if (candidates.length === 0) {
+            // No quedan jugadores para esta posición que no hayan sido seleccionados
+            // Como alternativa, podrías tomar cualquier jugador que no haya sido seleccionado aun
+            // si la restricción de posición es suave o si te quedas sin jugadores específicos.
+            // Por ahora, buscaremos cualquier jugador no usado si no hay de la posición exacta.
+            console.warn(`No more ${requiredPosition} available for slot ${slotId}. Picking any available player.`);
+            candidates = availablePlayers.filter(p => !selectedPlayersForTeam.includes(p));
+            if (candidates.length === 0) {
+                console.error("Ran out of unique players for the field!");
+                break; // Salir si no hay más jugadores únicos en absoluto
+            }
+        }
+        
+        const selectedPlayer = getRandomElement(candidates);
+        setPlayerInSlot(slotId, selectedPlayer);
+        selectedPlayersForTeam.push(selectedPlayer); // Marcar como usado
+        // Quitar de availablePlayers para optimizar futuras búsquedas y asegurar unicidad
+        availablePlayers = availablePlayers.filter(p => p !== selectedPlayer);
+    }
+
+    // Rellenar los 5 jugadores del banquillo (sin restricción de posición)
+    for (let i = 1; i <= 5; i++) {
+        const slotId = `sub-${i}`;
+        
+        // Asegurarse de que todavía queden jugadores disponibles que no estén ya en el equipo
+        let benchCandidates = availablePlayers.filter(p => !selectedPlayersForTeam.includes(p));
+
+        if (benchCandidates.length === 0) {
+            console.error("Ran out of unique players for the bench!");
+            break; // Salir si no hay más jugadores únicos en absoluto
+        }
+
+        const selectedBenchPlayer = getRandomElement(benchCandidates);
+        setPlayerInSlot(slotId, selectedBenchPlayer);
+        selectedPlayersForTeam.push(selectedBenchPlayer); // Marcar como usado
+        availablePlayers = availablePlayers.filter(p => p !== selectedBenchPlayer);
+    }
+     // Importante: Después de cambiar dinámicamente el contenido de los player-box,
+    // necesitas re-ejecutar addPlayerBoxActions() si los listeners se pierden.
+    // La función setPlayerInSlot ya re-adjunta el listener para el slot modificado.
+    // Si changeFormation() reemplaza todos los slots, entonces addPlayerBoxActions()
+    // debería llamarse después de changeFormation().
+
+    // Mi función setPlayerInSlot ya re-adjunta los listeners individuales.
+    // Pero si changeFormation() destruye y recrea todos los slots, entonces
+    // addPlayerBoxActions() debería llamarse DESPUÉS de changeFormation();
+    // addPlayerBoxActions(); // Llama a esto si es necesario después de todos los cambios.
+}
+
+/**
+ * Handle ultra random team generation
+ * This function will:
+ * 1. Choose a random formation from the `formations` array.
+ * 2. Choose a random coach from the `coaches` array.
+ * 3. Fill the player slots with random players from the `players` array, ensuring that:
+ *    - The players can be any position, not respecting the formation.
+ *   - No player is repeated in the team.
+ *  - The bench players can be any available players, not necessarily respecting their positions.
+ * * @returns {void}
+ */
+function handleUltraRandomTeam() {
+    // 0. Limpiar o preparar.
+    //    clearTeam(); // Opcional
+
+    // 1. Elegir una formación al azar
+    const randomFormationObject = getRandomElement(formations);
+    const formationDropdown = document.getElementById('formation-dropdown');
+    formationDropdown.value = randomFormationObject.name;
+    changeFormation();
+
+    // 2. Elegir un entrenador al azar
+    const randomCoachObject = getRandomElement(coaches);
+    const coachDropdown = document.getElementById('coach-dropdown');
+    coachDropdown.value = randomCoachObject[getCurrentLanguage() + 'Name'];
+    updateSprite('coach');
+
+    // 3. Elegir jugadores al azar sin importar posición
+    let availablePlayers = [...players]; // Copia para poder quitar jugadores usados
+    let selectedPlayersForTeam = []; // Para asegurar unicidad
+
+    // Rellenar los 11 jugadores del campo
+    for (let i = 1; i <= 11; i++) {
+        const slotId = `player-${i}`;
+
+        // Tomar cualquier jugador de los disponibles que no haya sido seleccionado
+        let candidates = availablePlayers.filter(p => !selectedPlayersForTeam.includes(p));
+        if (candidates.length === 0) {
+            console.error("Ran out of unique players for the field (Ultra Random)!");
+            break; 
+        }
+
+        const selectedPlayer = getRandomElement(candidates);
+        setPlayerInSlot(slotId, selectedPlayer);
+        selectedPlayersForTeam.push(selectedPlayer);
+        availablePlayers = availablePlayers.filter(p => p !== selectedPlayer);
+    }
+
+    // Rellenar los 5 jugadores del banquillo
+    for (let i = 1; i <= 5; i++) {
+        const slotId = `sub-${i}`;
+        
+        let benchCandidates = availablePlayers.filter(p => !selectedPlayersForTeam.includes(p));
+        if (benchCandidates.length === 0) {
+            console.error("Ran out of unique players for the bench (Ultra Random)!");
+            break;
+        }
+
+        const selectedBenchPlayer = getRandomElement(benchCandidates);
+        setPlayerInSlot(slotId, selectedBenchPlayer);
+        selectedPlayersForTeam.push(selectedBenchPlayer);
+        availablePlayers = availablePlayers.filter(p => p !== selectedBenchPlayer);
+    }
+    // addPlayerBoxActions(); // Llama a esto si es necesario.
+}
+
+// ORIGINAL FUNCTIONS
+
 /**
  * Render players to choose from inside modal
  * @param {array} players Players to be rendered inside of modal
@@ -442,6 +692,12 @@ function addButtonActions() {
 
     $('#add-button').unbind('click').click(function () {
         addCustomPlayer();
+    });
+    $('#random-button').unbind('click').click(function () {
+        handleRandomTeam();
+    });
+    $('#ultra-random-button').unbind('click').click(function () {
+        handleUltraRandomTeam();
     });
 }
 
