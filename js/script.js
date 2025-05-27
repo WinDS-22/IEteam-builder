@@ -1,7 +1,16 @@
 // Global variables
 var playerToChange, playerToChangeId, customSprite;
 
-
+//NEW ORIGINAL VARIABLES
+let draftInProgress = false;
+let draftStep = 0; // 0: formación, 1: coach, 2: jugadores de campo, 3: jugadores de banquillo
+let draftSelectedFormation = null;
+let draftSelectedCoach = null;
+let draftSelectedPlayers = []; // Array de objetos de jugadores ya seleccionados en el draft
+let draftFieldPlayerSlotsToFill = []; // e.g., [{slotId: 'player-1', position: 'GK'}, {slotId: 'player-2', position: 'DF'}, ...]
+let draftCurrentFieldIndex = 0; // Para llevar la cuenta de qué jugador de campo estamos eligiendo
+let draftBenchSlotsToFill = 5;
+let draftCurrentBenchIndex = 0;
 
 
 // NEW OWN FUNCTIONS
@@ -12,6 +21,21 @@ var playerToChange, playerToChangeId, customSprite;
  */
 function getRandomElement(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Get a certain number of random unique elements from an array
+ * @param {array} arr The array to get random unique elements from
+ * @param {number} count The number of unique elements to get
+ * @return {array} An array containing the random unique elements
+ */
+function getRandomUniqueElements(arr, count) {
+    if (count > arr.length) {
+        console.warn(`Requested ${count} unique elements, but only ${arr.length} are available. Returning all available.`);
+        return [...arr]; // Devuelve todos los disponibles si se piden más de los que hay
+    }
+    const shuffled = [...arr].sort(() => 0.5 - Math.random()); // Mezcla el array
+    return shuffled.slice(0, count); // Toma los primeros 'count' elementos
 }
 
 /**
@@ -87,6 +111,197 @@ function setPlayerInSlot(slotId, playerObject) {
             playerToChangeId = newDragBox.dataset.id; // Tu variable global
         });
     }
+}
+
+/**
+ * Start a draft process
+ * This function will:
+ * 1. Reset the draft state.
+ * 2. Show the draft modal.
+ * 3. Allow the user to select a formation.
+ * 4. Allow the user to select a coach.
+ * 5. Allow the user to select players for the field and bench.
+ * @returns {void}
+ */
+function startDraft() {
+    if (draftInProgress) {
+        alert("A draft is already in progress!");
+        return;
+    }
+    draftInProgress = true;
+    draftStep = 0;
+    draftSelectedFormation = null;
+    draftSelectedCoach = null;
+    draftSelectedPlayers = [];
+    draftFieldPlayerSlotsToFill = [];
+    draftCurrentFieldIndex = 0;
+    draftBenchSlotsToFill = 5; // o el número de suplentes que tengas
+    draftCurrentBenchIndex = 0;
+
+    // Opcional: Limpiar el equipo actual en la UI si es necesario
+    clearTeam(); // O una versión más ligera que solo limpie jugadores y coach
+
+    showDraftFormationSelection();
+    $('#draftModal').modal('show'); // Asumiendo que usas Bootstrap modal
+}
+
+/**
+ * Show the draft formation selection modal
+ * This function will:
+ * 1. Set the modal title.
+ * 2. Get 5 random unique formations from the `formations` array.
+ * 3. Render the draft options in the modal.
+ * 4. Set the selected formation when a user clicks on one.
+ * @return {void}
+ */
+function showDraftFormationSelection() {
+    $('#draftModalTitle').text('Draft: Select Formation');
+    const randomFormations = getRandomUniqueElements(formations, 5);
+
+    renderDraftOptions(randomFormations, 'name', (selectedFormation) => {
+        draftSelectedFormation = selectedFormation;
+        // Actualizar UI principal
+        const formationDropdown = document.getElementById('formation-dropdown');
+        formationDropdown.value = selectedFormation.name;
+        changeFormation(); // Esto debe asegurar que los slots player-1 a player-11 estén en el DOM
+
+        draftStep = 1;
+        showDraftCoachSelection();
+    });
+}
+
+/**
+ * Show the draft coach selection modal
+ * This function will:
+ * 1. Set the modal title.
+ * 2. Get 5 random unique coaches from the `coaches` array.
+ * 3. Render the draft options in the modal.
+ * 4. Set the selected coach when a user clicks on one.
+ * @return {void}
+ */
+function showDraftCoachSelection() {
+    $('#draftModalTitle').text('Draft: Select Coach');
+    const randomCoaches = getRandomUniqueElements(coaches, 5);
+    const language = getCurrentLanguage();
+
+    renderDraftOptions(randomCoaches, (coach) => coach[language + 'Name'], (selectedCoach) => {
+        draftSelectedCoach = selectedCoach;
+        // Actualizar UI principal
+        const coachDropdown = document.getElementById('coach-dropdown');
+        coachDropdown.value = selectedCoach[language + 'Name'];
+        updateSprite('coach');
+
+        draftStep = 2;
+        // Preparar slots de campo
+        draftFieldPlayerSlotsToFill = draftSelectedFormation.positions.map((pos, index) => {
+            return { slotId: `player-${index + 1}`, position: pos };
+        });
+        draftCurrentFieldIndex = 0;
+        showDraftFieldPlayerSelection();
+    });
+}
+
+/**
+ * Show the draft field player selection modal
+ * This function will:
+ * 1. Set the modal title.
+ * 2. Get 5 random unique players for the current field slot.
+ * 3. Render the draft options in the modal.
+ * 4. Set the selected player when a user clicks on one.
+ * @return {void}
+ */
+function showDraftFieldPlayerSelection() {
+    if (draftCurrentFieldIndex >= draftFieldPlayerSlotsToFill.length) {
+        draftStep = 3;
+        draftCurrentBenchIndex = 0;
+        showDraftBenchPlayerSelection();
+        return;
+    }
+
+    const currentSlotInfo = draftFieldPlayerSlotsToFill[draftCurrentFieldIndex];
+    $('#draftModalTitle').text(`Draft: Select ${currentSlotInfo.position} for Player #${draftCurrentFieldIndex + 1}`);
+
+    const availableFieldPlayers = players.filter(p =>
+        p.Position === currentSlotInfo.position &&
+        !draftSelectedPlayers.some(dsp => dsp.EnglishName === p.EnglishName) // Asegurar unicidad por nombre
+    );
+
+    if (availableFieldPlayers.length === 0) {
+        alert(`No more ${currentSlotInfo.position} players available for this slot. Draft might be incomplete or consider a different strategy for this case.`);
+        // Podrías terminar el draft aquí o permitir elegir de cualquier posición
+        // Por ahora, se mostrará una lista vacía si no hay candidatos.
+        // O se podría llamar a endDraft();
+         $('#draftModalBody').html('<p>No players available for this position. Draft cannot continue as designed.</p>');
+        return;
+    }
+
+
+    const candidatePlayers = getRandomUniqueElements(availableFieldPlayers, 5);
+    const language = getCurrentLanguage();
+
+    renderDraftOptions(candidatePlayers, (player) => player[language + 'Name'], (selectedPlayer) => {
+        draftSelectedPlayers.push(selectedPlayer);
+        setPlayerInSlot(currentSlotInfo.slotId, selectedPlayer); // Ya tienes esta función
+
+        draftCurrentFieldIndex++;
+        showDraftFieldPlayerSelection(); // Recursivo para el siguiente jugador de campo
+    });
+}
+
+/**
+ * Show the draft bench player selection modal
+ * This function will:
+ * 1. Set the modal title.
+ * 2. Get 5 random unique players for the current bench slot.
+ * 3. Render the draft options in the modal.
+ * 4. Set the selected player when a user clicks on one.
+ * @return {void}
+ */
+function showDraftBenchPlayerSelection() {
+    if (draftCurrentBenchIndex >= draftBenchSlotsToFill) {
+        endDraft();
+        return;
+    }
+
+    $('#draftModalTitle').text(`Draft: Select Bench Player #${draftCurrentBenchIndex + 1}`);
+
+    const availableBenchPlayers = players.filter(p =>
+        !draftSelectedPlayers.some(dsp => dsp.EnglishName === p.EnglishName) // Unicidad por nombre
+    );
+    
+    if (availableBenchPlayers.length === 0) {
+        alert(`No more players available for the bench. Draft might be incomplete.`);
+        $('#draftModalBody').html('<p>No players available for the bench. Draft cannot continue as designed.</p>');
+        return;
+    }
+
+    const candidatePlayers = getRandomUniqueElements(availableBenchPlayers, 5);
+    const language = getCurrentLanguage();
+
+    renderDraftOptions(candidatePlayers, (player) => player[language + 'Name'], (selectedPlayer) => {
+        draftSelectedPlayers.push(selectedPlayer);
+        setPlayerInSlot(`sub-${draftCurrentBenchIndex + 1}`, selectedPlayer);
+
+        draftCurrentBenchIndex++;
+        showDraftBenchPlayerSelection(); // Recursivo para el siguiente jugador de banquillo
+    });
+}
+
+/**
+ * End the draft process
+ * This function will:
+ * 1. Set the draftInProgress flag to false.
+ * 2. Hide the draft modal.
+ * 3. Optionally, show a message or update the UI to reflect the end of the draft.
+ * @returns {void}
+ */
+function endDraft() {
+    draftInProgress = false;
+    $('#draftModal').modal('hide');
+    alert("Draft Complete!"); // O un mensaje más elegante
+    // Aquí también podrías querer re-adjuntar todos los listeners si es necesario.
+    // addPlayerBoxActions(); // Si los listeners de los slots se pierden.
+                           // setPlayerInSlot ya debería manejarlos individualmente.
 }
 
 /**
@@ -247,6 +462,47 @@ function handleUltraRandomTeam() {
         availablePlayers = availablePlayers.filter(p => p !== selectedBenchPlayer);
     }
     // addPlayerBoxActions(); // Llama a esto si es necesario.
+}
+
+/**
+ * Render draft options in the modal
+ * @param {array} items Array of items to render (players, coaches, formations)
+ * @param {function|string} displayPropertyKeyGenerator Function or string to get the display property of each item
+ * @param {function} callbackOnClick Callback function to execute when an item is clicked
+ */
+function renderDraftOptions(items, displayPropertyKeyGenerator, callbackOnClick) {
+    const modalBody = $('#draftModalBody');
+    modalBody.empty();
+    const language = getCurrentLanguage(); // Asegúrate de que esta función exista y funcione
+
+    items.forEach(item => {
+        let displayValue;
+        if (typeof displayPropertyKeyGenerator === 'function') {
+            displayValue = displayPropertyKeyGenerator(item, language);
+        } else {
+            // Para formaciones, displayPropertyKeyGenerator es solo 'name'
+            // Para coaches/players, puede ser `item => item[language + 'Name']`
+            displayValue = item[displayPropertyKeyGenerator];
+        }
+        
+        // Necesitas decidir cómo mostrar cada item. Aquí un ejemplo simple con botones.
+        // Para jugadores, querrás mostrar su sprite, etc., similar a tu modal actual.
+        const itemHtml = $(`<button class="draft-option-button"></button>`).text(displayValue);
+        
+        // Si es un jugador, podrías querer añadir su sprite:
+        if (item.Sprite && (item.Position || item.EnglishName)) { // Asumimos que es un jugador si tiene Sprite y Position/Name
+            itemHtml.html(`
+                <img src="${item.Sprite}" alt="${displayValue}" style="width: 50px; height: auto; vertical-align: middle; margin-right: 10px;">
+                ${displayValue}
+            `);
+        }
+
+
+        itemHtml.on('click', function() {
+            callbackOnClick(item);
+        });
+        modalBody.append(itemHtml);
+    });
 }
 
 // ORIGINAL FUNCTIONS
@@ -584,9 +840,6 @@ function clearTeam() {
     document.getElementById('formation-dropdown').value = '4-4-2 (F-Basic)';
     changeFormation();
 
-    // Reset emblem
-    document.getElementById('emblem-sprite').src = "./images/team-placeholder.png";
-
     // Reset coach
     document.getElementById('coach-sprite').src = "./images/character-placeholder.png";
 
@@ -698,6 +951,9 @@ function addButtonActions() {
     });
     $('#ultra-random-button').unbind('click').click(function () {
         handleUltraRandomTeam();
+    });
+    $("#draft-button").unbind("click").click(function () {
+        startDraft();
     });
 }
 
