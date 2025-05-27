@@ -473,31 +473,69 @@ function handleUltraRandomTeam() {
 function renderDraftOptions(items, displayPropertyKeyGenerator, callbackOnClick) {
     const modalBody = $('#draftModalBody');
     modalBody.empty();
-    const language = getCurrentLanguage(); // Asegúrate de que esta función exista y funcione
+    const language = getCurrentLanguage();
 
     items.forEach(item => {
-        let displayValue;
-        if (typeof displayPropertyKeyGenerator === 'function') {
-            displayValue = displayPropertyKeyGenerator(item, language);
-        } else {
-            // Para formaciones, displayPropertyKeyGenerator es solo 'name'
-            // Para coaches/players, puede ser `item => item[language + 'Name']`
-            displayValue = item[displayPropertyKeyGenerator];
-        }
-        
-        // Necesitas decidir cómo mostrar cada item. Aquí un ejemplo simple con botones.
-        // Para jugadores, querrás mostrar su sprite, etc., similar a tu modal actual.
-        const itemHtml = $(`<button class="draft-option-button"></button>`).text(displayValue);
-        
-        // Si es un jugador, podrías querer añadir su sprite:
-        if (item.Sprite && (item.Position || item.EnglishName)) { // Asumimos que es un jugador si tiene Sprite y Position/Name
-            itemHtml.html(`
-                <img src="${item.Sprite}" alt="${displayValue}" style="width: 50px; height: auto; vertical-align: middle; margin-right: 10px;">
-                ${displayValue}
+        let itemHtml;
+
+        // Detectar si el item es un jugador
+        if (item.Sprite && item.Position && item.Element && item.Gender) {
+            // ... (código para renderizar jugadores, como lo hicimos antes - SIN CAMBIOS AQUÍ) ...
+            const playerName = item[language + 'Name'];
+            const playerPosition = item.Position;
+            const playerElement = item.Element;
+            const playerGender = item.Gender;
+            const playerSprite = item.Sprite;
+
+            itemHtml = $(`
+                <div class="modal-player-box draft-option-item">
+                    <p class="modal-player-name">${playerName.replace('<', '<').replace('>', '>')}</p>
+                    <div class="modal-player-box-container">
+                        <div class="modal-player-props-container">
+                            <div class='modal-player-position' style='background-image: url("./images/positions/${playerPosition}.png");'></div>
+                            <div class='modal-player-element' style='background-image: url("./images/elements/${playerElement}.png");'></div>
+                            <div class='modal-player-gender' style='background-image: url("./images/genders/${playerGender}.png");'></div>
+                        </div>
+                        <div class="modal-player-sprite-container">
+                            <img src="${playerSprite}" alt="${playerName}.png" class="modal-player-sprite"/>
+                        </div>
+                    </div>
+                </div>
             `);
+
+        } else if (item.name && item.image && item.html) { // Detectar si el item es una FORMACIÓN (tiene nombre, imagen y html)
+            const formationName = item.name;
+            const formationImage = item.image; // La nueva propiedad que has añadido
+
+            itemHtml = $(`
+                <div class="draft-formation-option draft-option-item">
+                    <img src="${formationImage}" alt="${formationName}" class="draft-formation-preview-image"/>
+                    <p class="draft-formation-name">${formationName}</p>
+                </div>
+            `);
+
+        } else { // Para coaches o cualquier otro tipo de item ( fallback al botón simple)
+            let displayValue;
+            if (typeof displayPropertyKeyGenerator === 'function') {
+                // Para coaches, displayPropertyKeyGenerator sería (item, lang) => item[lang + 'Name']
+                displayValue = displayPropertyKeyGenerator(item, language);
+            } else {
+                 // Esto podría ser un coach si displayPropertyKeyGenerator no es una función
+                 // o un tipo de item no reconocido. Por seguridad, asumimos que es el nombre.
+                displayValue = item.EnglishName || item.JapaneseName || item.name || "Unknown Item";
+            }
+            // Botón simple para coaches u otros
+            itemHtml = $(`<button class="draft-option-button draft-option-item"></button>`).text(displayValue);
+             // Si los coaches también tienen sprite, podrías añadirlo aquí similar a los jugadores/formaciones
+            if (item.Sprite && (item.EnglishName || item.JapaneseName)) { // Asumiendo que esto es un coach
+                itemHtml.html(`
+                    <img src="${item.Sprite}" alt="${displayValue}" style="width: 50px; height: auto; vertical-align: middle; margin-right: 10px;">
+                    ${displayValue}
+                `);
+            }
         }
 
-
+        // Adjuntar el evento de clic al elemento raíz que acabamos de crear
         itemHtml.on('click', function() {
             callbackOnClick(item);
         });
