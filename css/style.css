@@ -186,7 +186,7 @@ option {
 }
 
 #preferences-options-container {
-    height: 345px;
+    height: 365px;
     border: 6px solid;
     padding: 4px 8px;
     background-color: rgba(255, 255, 255, 65%);
@@ -2328,4 +2328,17 @@ img, .drag-box, .player-element-container, .sub-element-container, .modal-player
 /* Ajuste para .draft-option-item si no lo tienes ya */
 .draft-option-item {
     cursor: pointer;
+}
+
+/* En style.css */
+
+.player-container.fade-in-start,
+.sub-container.fade-in-start {
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out; /* Duración y tipo de transición del fade */
+}
+
+.player-container.visible,
+.sub-container.visible {
+    opacity: 1;
 }
